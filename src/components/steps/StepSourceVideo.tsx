@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, ArrowRight, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import type { useScriptWizard } from '@/hooks/useScriptWizard';
 
 interface Props {
@@ -30,96 +31,119 @@ export function StepSourceVideo({ wizard, onNext }: Props) {
   ];
 
   return (
-    <div className="space-y-10">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight text-foreground">
+    <div className="space-y-12">
+      <div className="relative">
+        <div className="absolute -left-6 top-0 bottom-0 w-1 bg-primary/20 rounded-full" />
+        <h2 className="text-4xl font-black tracking-tight text-foreground mb-4">
           Import Source Video
         </h2>
-        <p className="text-base text-muted-foreground mt-2 max-w-2xl leading-relaxed">
-          Paste a YouTube URL to borrow its <strong>structure</strong> — not its content.
-          We&apos;ll analyze the hook style, pacing, and transitions to inspire your new script.
+        <p className="text-lg text-muted-foreground max-w-2xl leading-relaxed font-medium">
+          Paste a YouTube URL to borrow its <span className="text-primary font-bold italic">structure</span> — not its content.
+          Analyze hook style, pacing, and transitions.
         </p>
       </div>
 
-      <div className="space-y-4">
-        <label className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+      <div className="space-y-6">
+        <label className="text-[11px] font-black text-primary uppercase tracking-[0.2em] ml-1">
           YouTube Video URL
         </label>
-        <div className="flex gap-3">
-          <Input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://www.youtube.com/watch?v=..."
-            className="flex-1 h-12 text-base px-4"
-            onKeyDown={(e) => e.key === 'Enter' && handleFetch()}
-            disabled={isLoadingTranscript}
-          />
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1 group">
+            <div className="absolute inset-0 bg-primary/5 rounded-2xl blur-lg transition-opacity opacity-0 group-focus-within:opacity-100" />
+            <Input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=..."
+              className="relative z-10 w-full h-16 text-lg px-6 rounded-2xl border-2 border-border/50 bg-white/50 focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all placeholder:text-muted-foreground/30"
+              onKeyDown={(e) => e.key === 'Enter' && handleFetch()}
+              disabled={isLoadingTranscript}
+            />
+          </div>
           <Button
             onClick={handleFetch}
             disabled={!url.trim() || isLoadingTranscript}
             size="lg"
-            className="px-6 h-12 text-sm"
+            className={`h-16 px-10 text-base font-bold rounded-2xl shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] ${!isLoadingTranscript ? 'shimmer' : ''}`}
           >
             {isLoadingTranscript ? (
               <>
-                <Loader2 className="size-4 animate-spin" />
-                Analyzing...
+                <Loader2 className="size-5 animate-spin mr-2" />
+                Analyzing
               </>
             ) : (
               <>
-                Analyze
-                <ArrowRight className="size-4" />
+                Analyze Video
+                <ArrowRight className="size-5 ml-2" />
               </>
             )}
           </Button>
         </div>
 
         {transcriptError && (
-          <div className="flex items-start gap-2.5 text-sm text-destructive bg-destructive/10 rounded-xl px-4 py-3">
-            <span className="shrink-0 mt-0.5">⚠️</span>
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-3 text-sm font-semibold text-destructive bg-destructive/5 border border-destructive/10 rounded-2xl px-6 py-4"
+          >
+            <span className="text-lg">✕</span>
             <span>{transcriptError}</span>
-          </div>
+          </motion.div>
         )}
 
         {isLoadingTranscript && (
-          <div className="text-sm text-muted-foreground bg-card rounded-xl px-4 py-3 border border-border">
-            <div className="flex items-center gap-2.5">
-              <Sparkles className="size-4 text-primary animate-pulse" />
-              Fetching transcript and analyzing video structure — this takes a few seconds...
+          <div className="bg-primary/5 rounded-2xl px-6 py-5 border border-primary/10 shimmer">
+            <div className="flex items-center gap-4">
+              <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Sparkles className="size-5 text-primary animate-pulse" />
+              </div>
+              <p className="text-sm font-bold text-primary/80 tracking-wide uppercase">
+                Reverse-engineering video DNA...
+              </p>
             </div>
           </div>
         )}
 
         {state.structuralAnalysis && !isLoadingTranscript && (
-          <div className="bg-card rounded-xl border border-border overflow-hidden">
+          <div className="bg-white/40 backdrop-blur-md rounded-3xl border border-white/50 overflow-hidden shadow-sm">
             <button
               type="button"
               onClick={() => setShowAnalysis(!showAnalysis)}
-              className="w-full flex items-center justify-between px-5 py-3.5 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+              className="w-full flex items-center justify-between px-6 py-5 text-sm font-bold text-foreground hover:bg-white/50 transition-colors"
             >
-              <div className="flex items-center gap-2.5">
-                <Sparkles className="size-4 text-primary" />
-                Structural Analysis of &ldquo;{state.videoTitle}&rdquo;
+              <div className="flex items-center gap-3">
+                <Sparkles className="size-5 text-primary" />
+                <span>Extracted Structure: &ldquo;{state.videoTitle}&rdquo;</span>
               </div>
-              {showAnalysis ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+              <div className={`transition-transform duration-300 ${showAnalysis ? 'rotate-180' : ''}`}>
+                <ChevronDown className="size-5 opacity-40" />
+              </div>
             </button>
-            {showAnalysis && (
-              <div className="px-5 pb-5 text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed border-t border-border pt-4">
-                {state.structuralAnalysis}
-              </div>
-            )}
+            <AnimatePresence>
+              {showAnalysis && (
+                <motion.div 
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-6 pb-8 text-sm text-foreground/70 whitespace-pre-wrap leading-relaxed border-t border-white/50 pt-6 italic">
+                    {state.structuralAnalysis}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )}
       </div>
 
-      <div className="space-y-3">
-        <p className="text-sm text-muted-foreground/60">Try an example:</p>
-        <div className="flex flex-wrap gap-2.5">
+      <div className="space-y-4">
+        <p className="text-[10px] font-black text-muted-foreground/40 uppercase tracking-[0.2em] ml-1">Try an example</p>
+        <div className="flex flex-wrap gap-3">
           {exampleVideos.map((ex) => (
             <button
               key={ex.label}
               onClick={() => setUrl(ex.url)}
-              className="text-sm px-4 py-2 rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all"
+              className="text-xs font-bold px-6 py-2.5 rounded-full border border-border/50 text-muted-foreground bg-white/30 hover:bg-white hover:text-primary hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5 transition-all outline-none focus:ring-2 focus:ring-primary/20"
             >
               {ex.label}
             </button>
@@ -127,7 +151,8 @@ export function StepSourceVideo({ wizard, onNext }: Props) {
         </div>
       </div>
 
-      <div className="text-sm text-muted-foreground/50 bg-muted/30 rounded-xl px-5 py-4 leading-relaxed">
+      <div className="text-xs font-medium text-muted-foreground/40 bg-white/20 border border-white/40 rounded-3xl px-8 py-6 leading-relaxed">
+        <strong className="text-foreground/30 uppercase tracking-widest block mb-1">Compatibility</strong>
         Works best with videos that have auto-generated or manual captions. Most popular
         creator channels have captions enabled by default.
       </div>
