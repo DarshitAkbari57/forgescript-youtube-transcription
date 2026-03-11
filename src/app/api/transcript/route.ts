@@ -37,8 +37,13 @@ export async function POST(req: NextRequest) {
     } else {
       // 2) Fallback: youtubei.js
       try {
+        console.log(`[YouTube] Fetching via youtubei.js for ${videoId}`);
         // Use TV client (often more resilient to parser changes and blocks)
-        const youtube = await Innertube.create({ client_type: 'TV' as any });
+        // generate_session_locally: true avoids an unnecessary fetch during init
+        const youtube = await Innertube.create({ 
+          client_type: 'TV' as any,
+          generate_session_locally: true 
+        });
         
         let info;
         try {
@@ -63,7 +68,7 @@ export async function POST(req: NextRequest) {
               }
             }
           } catch (e: any) {
-            // transcript failed
+            console.error('[YouTube] info.getTranscript failed:', e.message);
           }
         }
         
