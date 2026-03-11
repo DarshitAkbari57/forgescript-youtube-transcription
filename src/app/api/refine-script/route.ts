@@ -1,45 +1,36 @@
-import { NextRequest } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
-import { buildRefinePrompt } from '@/lib/prompts';
+import { NextRequest, NextResponse } from 'next/server';
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+const BACKEND_URL = process.env.BACKEND_API_URL;
 
 export async function POST(req: NextRequest) {
-  const { currentScript, refinementRequest, voiceDescription } = await req.json();
-  const prompt = buildRefinePrompt(currentScript, refinementRequest, voiceDescription);
+  try {
+    const body = await req.json();
 
-  const encoder = new TextEncoder();
+    if (!BACKEND_URL) {
+      return NextResponse.json({ error: 'BACKEND_API_URL not configured' }, { status: 500 });
+    }
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      try {
-        const response = anthropic.messages.stream({
-          model: 'claude-sonnet-4-5-20250929',
-          max_tokens: 8000,
-          messages: [{ role: 'user', content: prompt }],
-        });
+    const response = await fetch(`${BACKEND_URL}/api/refine-script`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
 
-        for await (const event of response) {
-          if (
-            event.type === 'content_block_delta' &&
-            event.delta.type === 'text_delta'
-          ) {
-            controller.enqueue(encoder.encode(event.delta.text));
-          }
-        }
-        controller.close();
-      } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Refinement failed';
-        controller.enqueue(encoder.encode(`\n\nERROR: ${msg}`));
-        controller.close();
-      }
-    },
-  });
+    if (!response.ok) {
+      const errorText = await response.text();
+      return new Response(errorText, { status: response.status });
+    }
 
-  return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'Cache-Control': 'no-cache',
-    },
-  });
+    return new Response(response.body, {
+      headers: {
+        'Content-Type': response.headers.get('Content-Type') || 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache',
+      },
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to proxy request';
+    return new Response(`ERROR: ${message}`, { status: 500 });
+  }
 }

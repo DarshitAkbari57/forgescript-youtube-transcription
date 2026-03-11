@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { WizardState, GeneratedScript } from '@/lib/types';
+import { API_ENDPOINTS } from '@/lib/api';
 
 const STORAGE_KEY = 'scriptforge-wizard-state';
 
@@ -90,7 +91,7 @@ export function useScriptWizard() {
       setIsLoadingTranscript(true);
       setTranscriptError('');
       try {
-        const res = await fetch('/api/transcript', {
+        const res = await fetch(API_ENDPOINTS.TRANSCRIPT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url }),
@@ -125,7 +126,7 @@ export function useScriptWizard() {
       updateState({ isGenerating: true, streamedContent: '', generatedScript: null });
 
       try {
-        const res = await fetch('/api/generate-script', {
+        const res = await fetch(API_ENDPOINTS.GENERATE_SCRIPT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(wizardState),
@@ -165,7 +166,7 @@ export function useScriptWizard() {
       updateState({ isGenerating: true, streamedContent: '' });
 
       try {
-        const res = await fetch('/api/refine-script', {
+        const res = await fetch(API_ENDPOINTS.REFINE_SCRIPT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
