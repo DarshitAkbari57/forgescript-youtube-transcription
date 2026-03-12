@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { WizardState, GeneratedScript, ScriptOutline, Idea, SEOData } from '@/lib/types';
+import { WizardState, GeneratedScript } from '@/lib/types';
 import { API_ENDPOINTS } from '@/lib/api';
 
 const STORAGE_KEY = 'scriptforge-wizard-state';
@@ -16,14 +16,6 @@ const initialState: WizardState = {
   researchNotes: '',
   targetAudience: '',
   videoGoal: 'educate',
-  
-  niche: '',
-  generatedIdeas: [],
-  seoData: null,
-  hookVariations: [],
-  suggestedTitles: [],
-  thumbnailText: [],
-
   channelName: '',
   voiceDescription: '',
   toneKeywords: [],
@@ -32,7 +24,6 @@ const initialState: WizardState = {
   generatedScript: null,
   isGenerating: false,
   streamedContent: '',
-  currentStep: 0,
 };
 
 function loadSavedState(): WizardState {
@@ -41,12 +32,7 @@ function loadSavedState(): WizardState {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      return { 
-        ...initialState, 
-        ...parsed, 
-        isGenerating: false, 
-        streamedContent: ''
-      };
+      return { ...initialState, ...parsed, isGenerating: false, streamedContent: '' };
     }
   } catch {
     // corrupted storage; start fresh
@@ -60,16 +46,7 @@ function parseStreamedScript(raw: string): GeneratedScript | null {
     if (!jsonMatch) return null;
     const parsed = JSON.parse(jsonMatch[0]);
     if (parsed.fullScript && parsed.suggestedTitle) {
-      // Ensure required arrays/objects exist to prevent crashes
-      return {
-        ...parsed,
-        qualityScore: parsed.qualityScore || { hook: 0, clarity: 0, engagement: 0, retention: 0 },
-        timeline: parsed.timeline || [],
-        bRollSuggestions: parsed.bRollSuggestions || [],
-        hookVariations: parsed.hookVariations || [],
-        suggestedTitles: parsed.suggestedTitles || [],
-        thumbnailText: parsed.thumbnailText || []
-      } as GeneratedScript;
+      return parsed as GeneratedScript;
     }
   } catch {
     // incomplete or malformed JSON
@@ -79,30 +56,37 @@ function parseStreamedScript(raw: string): GeneratedScript | null {
 
 export function useScriptWizard() {
   const [state, setState] = useState<WizardState>(initialState);
+  const [currentStep, setCurrentStep] = useState(0);
   const [isLoadingTranscript, setIsLoadingTranscript] = useState(false);
-  const [isLoadingOutline, setIsLoadingOutline] = useState(false);
-  const [isLoadingIdeas, setIsLoadingIdeas] = useState(false);
-  const [isLoadingHooks, setIsLoadingHooks] = useState(false);
-  const [isLoadingTitles, setIsLoadingTitles] = useState(false);
-  const [isLoadingSEO, setIsLoadingSEO] = useState(false);
   const [transcriptError, setTranscriptError] = useState('');
   const [hydrated, setHydrated] = useState(false);
   const stateRef = useRef(state);
   stateRef.current = state;
 
   useEffect(() => {
+    const saved = loadSavedState();
+    setState(saved);
+    if (saved.transcript) {
+      setCurrentStep(saved.generatedScript ? 3 : saved.channelName ? 2 : saved.newTopic ? 1 : 0);
+    }
     setHydrated(true);
   }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const { isGenerating, streamedContent, ...persistable } = state;
+    void isGenerating;
+    void streamedContent;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(persistable));
+    } catch {
+      // storage full or unavailable
+    }
+  }, [state, hydrated]);
 
   const updateState = useCallback((updates: Partial<WizardState>) => {
     setState((prev) => ({ ...prev, ...updates }));
   }, []);
-
-  const setCurrentStep = useCallback((step: number) => {
-    updateState({ currentStep: step });
-  }, [updateState]);
-
-  const currentStep = state.currentStep;
 
   const fetchTranscript = useCallback(
     async (url: string) => {
@@ -128,11 +112,11 @@ export function useScriptWizard() {
             channelName: data.channelName,
           },
         });
-        return data;
+        return true;
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Failed to fetch transcript';
         setTranscriptError(message);
-        return null;
+        return false;
       } finally {
         setIsLoadingTranscript(false);
       }
@@ -140,90 +124,27 @@ export function useScriptWizard() {
     [updateState]
   );
 
-  const generateIdeas = useCallback(async (niche: string) => {
-    setIsLoadingIdeas(true);
-    try {
-      const res = await fetch(API_ENDPOINTS.GENERATE_IDEAS, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ niche }),
-      });
-      const data = await res.json();
-      updateState({ generatedIdeas: data.ideas });
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoadingIdeas(false);
-    }
-  }, [updateState]);
-
-  const generateOutline = useCallback(async (wizardState: WizardState) => {
-    setIsLoadingOutline(true);
-    try {
-      const res = await fetch(API_ENDPOINTS.GENERATE_OUTLINE, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(wizardState),
-      });
-      const data = await res.json();
-      updateState({ scriptOutline: data });
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoadingOutline(false);
-    }
-  }, [updateState]);
-
-  const generateHooks = useCallback(async (topic: string, targetAudience: string) => {
-    setIsLoadingHooks(true);
-    try {
-      const res = await fetch(API_ENDPOINTS.GENERATE_HOOKS, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, targetAudience }),
-      });
-      const data = await res.json();
-      updateState({ hookVariations: data.hooks });
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoadingHooks(false);
-    }
-  }, [updateState]);
-
-  const generateTitles = useCallback(async (topic: string, targetAudience: string) => {
-    setIsLoadingTitles(true);
-    try {
-      const res = await fetch(API_ENDPOINTS.GENERATE_TITLES, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, targetAudience }),
-      });
-      const data = await res.json();
-      updateState({ suggestedTitles: data.titles, thumbnailText: data.thumbnailText });
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoadingTitles(false);
-    }
-  }, [updateState]);
-
-  const fetchSEOData = useCallback(async (topic: string) => {
-    setIsLoadingSEO(true);
-    try {
-      const res = await fetch(API_ENDPOINTS.SEO_TOOLS, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic }),
-      });
-      const data = await res.json();
-      updateState({ seoData: data });
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoadingSEO(false);
-    }
-  }, [updateState]);
+  const generateOutline = useCallback(
+    async (wizardState: WizardState) => {
+      updateState({ isGenerating: true, scriptOutline: null });
+      try {
+        const res = await fetch(API_ENDPOINTS.GENERATE_OUTLINE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(wizardState),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        updateState({ scriptOutline: data, isGenerating: false });
+        return true;
+      } catch (err) {
+        console.error('Failed to generate outline:', err);
+        updateState({ isGenerating: false });
+        return false;
+      }
+    },
+    [updateState]
+  );
 
   const generateScript = useCallback(
     async (wizardState: WizardState) => {
@@ -323,20 +244,11 @@ export function useScriptWizard() {
     setCurrentStep,
     updateState,
     fetchTranscript,
-    generateIdeas,
     generateOutline,
-    generateHooks,
-    generateTitles,
-    fetchSEOData,
     generateScript,
     refineScript,
     resetWizard,
     isLoadingTranscript,
-    isLoadingOutline,
-    isLoadingIdeas,
-    isLoadingHooks,
-    isLoadingTitles,
-    isLoadingSEO,
     transcriptError,
     hydrated,
   };

@@ -51,7 +51,6 @@ export interface WizardState {
   generatedScript: GeneratedScript | null;
   isGenerating: boolean;
   streamedContent: string;
-  currentStep: number;
 }
 
 export interface GeneratedScript {
